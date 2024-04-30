@@ -1,112 +1,149 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { getOCR } from '@/apis/ocr';
+import { useChat } from 'ai/react';
+import { Paperclip } from 'lucide-react';
+import axios from 'axios';
+import UserButton from '@/components/user-button';
+import ChatHistory from '@/components/chat-history';
+import { useSelector } from 'react-redux';
+import { Content } from 'next/font/google';
+import { getConversations, saveConversation } from './api/chat-history';
+import { useEffect, useState } from 'react';
+
+export default function Chat() {
+  const user = useSelector((state: any) => state.Auth.user);
+  const [loading, setLoading] = useState(false);
+  const saveChat = async (m: any) => {
+    if (user) {
+      const lastChat = [
+        {
+          id: String(Date.now()),
+          role: 'user',
+          content: input,
+          createdAt: Date.now(),
+        },
+        m,
+      ];
+      const res = await saveConversation(JSON.stringify(lastChat), user.id);
+    }
+  };
+
+  const { messages, setMessages, input, handleInputChange, handleSubmit } =
+    useChat({ onFinish: (m) => saveChat(m) });
+
+  const getOCRResponse = async (data: string) => {
+    const res: any = await axios.post('/api/chat', {
+      messages: [
+        {
+          role: 'user',
+          content: `below is the ocr generated from a w2 form. summarize this and and for every next prompt, answer according to this form.\n\n${data}`,
+        },
+      ],
+      stream: false,
+    });
+    const responseMessage = res.data.choices[0].message;
+    setMessages([...messages, { id: String(Date.now()), ...responseMessage }]);
+    await saveConversation(
+      JSON.stringify([{ id: String(Date.now()), ...responseMessage }]),
+      user.id
+    );
+  };
+
+  const handleFileChange = async (e: any) => {
+    if (e.target.files) {
+      setLoading(true);
+      const formData = new FormData();
+      const instructions = JSON.stringify({
+        parts: [{ file: 'document' }],
+        actions: [
+          {
+            type: 'ocr',
+            language: 'english',
+          },
+        ],
+        output: {
+          type: 'json-content',
+        },
+      });
+      formData.append('instructions', instructions);
+      formData.append('document', e.target.files[0]);
+      const res = await getOCR(formData);
+      await getOCRResponse(res.pages[0].plainText);
+      setLoading(false);
+    }
+  };
+
+  const populateChat = async () => {
+    const res = await getConversations(user.id);
+    if (res) {
+      setMessages(res);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      populateChat();
+    }
+  }, [user]);
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <main className='bg-stone-800 text-white'>
+      <UserButton />
+
+      <h1 className='mt-0 m-10 text-4xl md:text-6xl text-center pt-10 md:pt-20 font-bold tracking-tighter'>
+        Upload a W2 Form for Chat
+      </h1>
+      {!user ? (
+        <p className='text-center'>Login or Signup to store chat history</p>
+      ) : null}
+      {loading ? <p className='text-center'>Reading Document...</p> : null}
+      <div className='flex'>
+        <div className='flex flex-col max-w-xl mx-auto pt-2 md:pt-10 pb-32'>
+          {messages.map((m) => (
+            <div
+              key={m.id}
+              className={`rounded-lg p-4 mb-4 ${
+                m.role === 'user'
+                  ? 'bg-blue-700 text-white max-w-max mx-6'
+                  : 'bg-gray-700 text-gray-300 mx-6'
+              }`}
+            >
+              <div className='whitespace-pre-wrap'>
+                {m.role === 'user' ? (
+                  <span className='font-semibold mr-1'>User:</span>
+                ) : (
+                  <span className='font-semibold mr-1'>Mixtral:</span>
+                )}
+                {m.content}
+              </div>
+            </div>
+          ))}
+
+          <form
+            onSubmit={handleSubmit}
+            className='flex gap-3 items-center justify-center fixed bottom-10 left-0 right-0 z-10 m-auto'
           >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+            <div>
+              <label htmlFor='file-input'>
+                <Paperclip className='cursor-pointer h-10 w-10' />
+              </label>
+              <input
+                className='hidden'
+                type='file'
+                id='file-input'
+                accept='pdf'
+                onChange={handleFileChange}
+              />
+            </div>
+            <input
+              className='rounded-full p-4 w-full border-2 border-gray-700 bg-gray-800  max-w-xs md:max-w-2xl placeholder:text-sm text-white'
+              value={input}
+              placeholder='Ask something...'
+              onChange={handleInputChange}
             />
-          </a>
+          </form>
         </div>
-      </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
       </div>
     </main>
   );
