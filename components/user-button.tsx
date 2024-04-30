@@ -1,4 +1,4 @@
-import { logout } from '@/app/api/login/route';
+import { logout } from '@/app/api/auth-apis';
 import { resetAuth } from '@/redux/slices/auth-slice';
 import { dispatch } from '@/redux/store';
 import Link from 'next/link';

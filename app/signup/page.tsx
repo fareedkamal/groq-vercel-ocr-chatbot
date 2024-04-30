@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { login, signup } from '../api/login/route';
+import { login, signup } from '../api/auth-apis';
 import toast from 'react-hot-toast';
 import { dispatch } from '@/redux/store';
 import { setAuth } from '@/redux/slices/auth-slice';
