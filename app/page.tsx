@@ -37,17 +37,19 @@ export default function Chat() {
       messages: [
         {
           role: 'user',
-          content: `below is the ocr generated from a w2 form. summarize this and and for every next prompt, answer according to this form.\n\n${data}`,
+          content: `Below is the ocr generated from a w2 form. summarize this and and for every next prompt, answer according to this form.\n\n${data}`,
         },
       ],
       stream: false,
     });
     const responseMessage = res.data.choices[0].message;
     setMessages([...messages, { id: String(Date.now()), ...responseMessage }]);
-    await saveConversation(
-      JSON.stringify([{ id: String(Date.now()), ...responseMessage }]),
-      user.id
-    );
+    if (user) {
+      await saveConversation(
+        JSON.stringify([{ id: String(Date.now()), ...responseMessage }]),
+        user.id
+      );
+    }
   };
 
   const handleFileChange = async (e: any) => {
@@ -69,7 +71,7 @@ export default function Chat() {
       formData.append('instructions', instructions);
       formData.append('document', e.target.files[0]);
       const res = await getOCR(formData);
-      await getOCRResponse(res.pages[0].plainText);
+      await getOCRResponse(res?.pages[0]?.plainText);
       setLoading(false);
     }
   };
