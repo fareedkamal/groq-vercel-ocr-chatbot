@@ -9,7 +9,7 @@ import ChatHistory from '@/components/chat-history';
 import { useSelector } from 'react-redux';
 import { Content } from 'next/font/google';
 import { getConversations, saveConversation } from './api/chat-history';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export default function Chat() {
   const user = useSelector((state: any) => state.Auth.user);
@@ -74,18 +74,21 @@ export default function Chat() {
     }
   };
 
-  const populateChat = async () => {
-    const res = await getConversations(user.id);
-    if (res) {
-      setMessages(res);
-    }
-  };
+  const populateChat = useCallback(
+    async (userId: string) => {
+      const res = await getConversations(userId);
+      if (res) {
+        setMessages(res);
+      }
+    },
+    [setMessages]
+  );
 
   useEffect(() => {
     if (user) {
-      populateChat();
+      populateChat(user.id);
     }
-  }, [user]);
+  }, [user, populateChat]);
 
   return (
     <main className='bg-stone-800 text-white'>
