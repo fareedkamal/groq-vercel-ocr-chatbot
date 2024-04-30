@@ -1,6 +1,6 @@
 'use client';
 
-import { getOCR } from '@/apis/ocr';
+import { getOCR } from '@/app/api/ocr';
 import { useChat } from 'ai/react';
 import { Paperclip } from 'lucide-react';
 import axios from 'axios';
@@ -71,6 +71,7 @@ export default function Chat() {
       formData.append('instructions', instructions);
       formData.append('document', e.target.files[0]);
       const res = await getOCR(formData);
+      console.log(res);
       await getOCRResponse(res?.pages[0]?.plainText);
       setLoading(false);
     }

@@ -15,6 +15,7 @@ export const getOCR = async (formData: any) => {
         responseType: 'json',
       }
     );
+    console.log(response);
     return response.data;
   } catch (e) {
     console.log(e);
